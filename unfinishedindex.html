@@ -117,13 +117,12 @@
                 frameworkUrl: buildUrl + "/hk.framework.js",
                 codeUrl: wasmurl,
                 streamingAssetsUrl: "StreamingAssets",
-                companyName: "Team Cherry & HummingTech",
+                companyName: "Team Cherry & Truffled",
                 productName: "Hollow Knight",
                 productVersion: "1.0",
             };
 
-            // Optimization: Force devicePixelRatio to 1 for all systems to reduce rendering workload.
-            config.devicePixelRatio = 1;
+            // Removed universal config.devicePixelRatio = 1; for better visuals on higher-end systems.
 
             var container = document.querySelector("#unity-container");
             container.hidden = false;
@@ -140,7 +139,7 @@
                 document.getElementsByTagName('head')[0].appendChild(meta);
                 container.className = "unity-mobile";
                 canvas.className = "unity-mobile"; // Ensure canvas also gets mobile class
-                // config.devicePixelRatio = 1; // This is now set universally above
+                config.devicePixelRatio = 1; // Keep this for mobile performance
                 mobileWarning.style.display = "block";
                 setTimeout(() => {
                     mobileWarning.style.display = "none";
