@@ -33,6 +33,96 @@
             background: #231F20;
             /* Ensures background matches body if canvas is transparent */
         }
+
+        /* Styles for the instruction text */
+        #instruction-text {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-family: sans-serif;
+            font-size: 16px;
+            z-index: 1000;
+            display: none;
+        }
+
+        /* Styles for the Developer Console */
+        #dev-console {
+            position: absolute; /* Changed from fixed to absolute for dragging */
+            top: 0;
+            right: 0;
+            /* Removed fixed width/height, will be managed by JS */
+            min-width: 200px; /* Minimum size for resizing */
+            min-height: 100px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            font-family: monospace;
+            font-size: 12px;
+            overflow: hidden; /* Hide content overflow, scrollbar on output div */
+            padding: 0; /* Padding moved to inner elements */
+            box-sizing: border-box;
+            z-index: 999;
+            display: none;
+        }
+
+        #dev-console-header { /* Style for the console header */
+            color: #fff;
+            border-bottom: 1px solid #333;
+            padding: 5px 10px;
+            margin-bottom: 5px;
+            cursor: grab;
+            box-sizing: border-box;
+            height: 25px; /* Fixed height for header */
+            display: flex;
+            align-items: center;
+        }
+
+        #dev-console-output { /* Apply scroll to the content area */
+            height: calc(100% - 25px); /* Take remaining height after header */
+            overflow-y: scroll;
+            padding: 5px 10px;
+            box-sizing: border-box;
+        }
+
+        /* Styles for the FPS viewer */
+        #fps-viewer {
+            position: absolute; /* Changed from fixed to absolute for dragging */
+            top: 10px;
+            left: 10px; /* Already top-left */
+            background: rgba(0, 0, 0, 0.7);
+            color: #0f0;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 5px 10px;
+            border-radius: 3px;
+            z-index: 998;
+            display: none;
+            cursor: grab; /* Make it draggable */
+        }
+
+        /* Resizer handles for draggable/resizable elements */
+        .resizer {
+            background: rgba(255, 255, 255, 0.1); /* Lighter background for visibility */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: absolute;
+            z-index: 10000;
+        }
+
+        /* Corner resizers */
+        .resizer.nw { width: 10px; height: 10px; top: -5px; left: -5px; cursor: nw-resize; }
+        .resizer.ne { width: 10px; height: 10px; top: -5px; right: -5px; cursor: ne-resize; }
+        .resizer.se { width: 10px; height: 10px; bottom: -5px; right: -5px; cursor: se-resize; }
+        .resizer.sw { width: 10px; height: 10px; bottom: -5px; left: -5px; cursor: sw-resize; }
+
+        /* Side resizers */
+        .resizer.n { width: calc(100% - 10px); height: 5px; top: -3px; left: 5px; cursor: n-resize; }
+        .resizer.s { width: calc(100% - 10px); height: 5px; bottom: -3px; left: 5px; cursor: s-resize; }
+        .resizer.e { width: 5px; height: calc(100% - 10px); top: 5px; right: -3px; cursor: e-resize; }
+        .resizer.w { width: 5px; height: calc(100% - 10px); top: 5px; left: -3px; cursor: w-resize; }
     </style>
 </head>
 
@@ -56,17 +146,143 @@
         style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 5px; font-family: sans-serif; font-size: 16px; z-index: 1000; display: none;">
         Press '1' to toggle console, Press '2' to toggle FPS
     </div>
-    <div id="dev-console"
-        style="position: fixed; top: 0; right: 0; width: 40%; height: 40%; background: rgba(0, 0, 0, 0.8); color: #0f0; font-family: monospace; font-size: 12px; overflow-y: scroll; padding: 10px; box-sizing: border-box; z-index: 999; display: none;">
-        <div style="color: #fff; border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 5px;">Developer
-            Console</div>
+    <div id="dev-console">
+        <div id="dev-console-header">Developer Console</div> <!-- Added ID for dragging -->
+        <div id="dev-console-output"></div> <!-- Dedicated div for console output -->
     </div>
-    <div id="fps-viewer"
-        style="position: fixed; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.7); color: #0f0; font-family: monospace; font-size: 14px; padding: 5px 10px; border-radius: 3px; z-index: 998; display: none;">
+    <div id="fps-viewer">
         FPS: <span id="fps-value">0</span>
     </div>
 
     <script>
+        // --- Common Drag and Resize Functions (added to global scope) ---
+        function makeDraggable(element, handle) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            const dragHandle = handle || element;
+
+            dragHandle.onmousedown = dragMouseDown;
+            dragHandle.style.cursor = 'grab';
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                // Get the mouse cursor position at startup:
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                // Call a function whenever the cursor moves:
+                document.onmousemove = elementDrag;
+                dragHandle.style.cursor = 'grabbing';
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                // Calculate the new cursor position:
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                // Set the element's new position:
+                element.style.top = (element.offsetTop - pos2) + "px";
+                element.style.left = (element.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+                dragHandle.style.cursor = 'grab';
+            }
+        }
+
+        function makeResizable(element, minWidth, minHeight) {
+            // Added side resizers: n, s, e, w
+            const resizeHandles = ['nw', 'ne', 'se', 'sw', 'n', 's', 'e', 'w'];
+
+            resizeHandles.forEach(direction => {
+                const resizer = document.createElement('div');
+                resizer.className = `resizer ${direction}`;
+                element.appendChild(resizer);
+
+                let currentResizer;
+
+                resizer.addEventListener('mousedown', function(e) {
+                    currentResizer = resizer;
+                    e.preventDefault();
+                    let startX = e.clientX;
+                    let startY = e.clientY;
+                    let startWidth = parseInt(document.defaultView.getComputedStyle(element).width, 10);
+                    let startHeight = parseInt(document.defaultView.getComputedStyle(element).height, 10);
+                    let startLeft = element.offsetLeft;
+                    let startTop = element.offsetTop;
+
+                    function doDrag(e) {
+                        let newWidth = startWidth;
+                        let newHeight = startHeight;
+                        let newLeft = startLeft;
+                        let newTop = startTop;
+
+                        switch (currentResizer.classList[1]) {
+                            case 'se':
+                                newWidth = startWidth + (e.clientX - startX);
+                                newHeight = startHeight + (e.clientY - startY);
+                                break;
+                            case 'sw':
+                                newWidth = startWidth - (e.clientX - startX);
+                                newHeight = startHeight + (e.clientY - startY);
+                                newLeft = startLeft + (e.clientX - startX);
+                                break;
+                            case 'ne':
+                                newWidth = startWidth + (e.clientX - startX);
+                                newHeight = startHeight - (e.clientY - startY);
+                                newTop = startTop + (e.clientY - startY);
+                                break;
+                            case 'nw':
+                                newWidth = startWidth - (e.clientX - startX);
+                                newHeight = startHeight - (e.clientY - startY);
+                                newLeft = startLeft + (e.clientX - startX);
+                                newTop = startTop + (e.clientY - startY);
+                                break;
+                            case 'n': // North resizer
+                                newHeight = startHeight - (e.clientY - startY);
+                                newTop = startTop + (e.clientY - startY);
+                                break;
+                            case 's': // South resizer
+                                newHeight = startHeight + (e.clientY - startY);
+                                break;
+                            case 'e': // East resizer
+                                newWidth = startWidth + (e.clientX - startX);
+                                break;
+                            case 'w': // West resizer
+                                newWidth = startWidth - (e.clientX - startX);
+                                newLeft = startLeft + (e.clientX - startX);
+                                break;
+                        }
+
+                        element.style.width = Math.max(minWidth, newWidth) + 'px';
+                        element.style.height = Math.max(minHeight, newHeight) + 'px';
+                        element.style.left = newLeft + 'px';
+                        element.style.top = newTop + 'px';
+                    }
+
+                    function stopDrag() {
+                        document.removeEventListener('mousemove', doDrag);
+                        document.removeEventListener('mouseup', stopDrag);
+                        currentResizer = null;
+                    }
+
+                    document.addEventListener('mousemove', doDrag);
+                    document.addEventListener('mouseup', stopDrag);
+                });
+            });
+
+            // Set initial size if not already set by CSS
+            if (!element.style.width) element.style.width = '400px';
+            if (!element.style.height) element.style.height = '200px';
+            element.style.position = 'absolute'; // Ensure it's positioned for resize
+        }
+        // --- End Common Functions ---
+
         var loadingText = document.querySelector("#loading-text");
         let loadedBytes = 0;
 
@@ -74,6 +290,8 @@
         // Get references to new elements
         var instructionText = document.querySelector("#instruction-text");
         var devConsole = document.querySelector("#dev-console");
+        var devConsoleHeader = document.querySelector("#dev-console-header"); // Get console header
+        var devConsoleOutput = document.querySelector("#dev-console-output"); // Get the dedicated output div
         var fpsViewer = document.querySelector("#fps-viewer");
         var fpsValue = document.querySelector("#fps-value");
 
@@ -110,9 +328,11 @@
             }).join(' ');
 
             logEntry.textContent = formattedMessage;
-            devConsole.appendChild(logEntry);
-            // Scroll to bottom
-            devConsole.scrollTop = devConsole.scrollHeight;
+            devConsoleOutput.appendChild(logEntry); // Append to the dedicated output div
+            // Scroll to bottom, only if console is visible
+            if (consoleVisible) {
+                devConsoleOutput.scrollTop = devConsoleOutput.scrollHeight;
+            }
         }
 
         console.log = function (...args) {
@@ -131,6 +351,10 @@
         function toggleConsole() {
             consoleVisible = !consoleVisible;
             devConsole.style.display = consoleVisible ? 'block' : 'none';
+            if (consoleVisible) {
+                // Scroll to bottom when console becomes visible
+                devConsoleOutput.scrollTop = devConsoleOutput.scrollHeight;
+            }
         }
 
         // FPS Viewer setup
@@ -163,6 +387,11 @@
         // Start FPS calculation loop
         requestAnimationFrame(calculateFps);
 
+        // Initialize drag and resize for console and FPS viewer
+        makeDraggable(devConsole, devConsoleHeader);
+        makeResizable(devConsole, 200, 100); // minWidth, minHeight
+        makeDraggable(fpsViewer, fpsViewer); // FPS viewer is draggable by itself
+
         // Keyboard event listener
         document.addEventListener('keydown', (event) => {
             if (event.key === '1') {
@@ -173,17 +402,6 @@
         });
         // --- NEW CODE END ---
 
-        // The getSize function is no longer needed as totalBytes calculation is removed.
-        // async function getSize(url) {
-        //     try {
-        //         const res = await fetch(url, {
-        //             method: "HEAD"
-        //         });
-        //         return parseInt(res.headers.get("Content-Length") || "0", 10);
-        //     } catch {
-        //         return 0;
-        //     }
-        // }
         async function fetchWithProgress(url) {
             const response = await fetch(url);
             const reader = response.body.getReader();
@@ -225,10 +443,6 @@
             return parts;
         }
         (async () => {
-            // Removed totalBytes calculation as it's no longer used for display.
-            // const allParts = [...getParts("Build/hk.data", 1, 42), ...getParts("Build/hk.wasm", 1, 2), ];
-            // totalBytes = (await Promise.all(allParts.map(getSize))).reduce((a, b) => a + b, 0);
-
             const [dataUrl, wasmurl] = await Promise.all([
                 mergeFiles(getParts("Build/hk.data", 1, 42)),
                 mergeFiles(getParts("Build/hk.wasm", 1, 2)),
@@ -263,14 +477,12 @@
                 document.getElementsByTagName('head')[0].appendChild(meta);
                 container.className = "unity-mobile";
                 canvas.className = "unity-mobile"; // Ensure canvas also gets mobile class
-                // config.devicePixelRatio = 1; // This is now set universally above
                 mobileWarning.style.display = "block";
                 setTimeout(() => {
                     mobileWarning.style.display = "none";
                 }, 5000);
             } else {
                 // Desktop setup: Unity will manage canvas size within the 100% width/height container
-                // Removed resizeCanvas function and listener as Unity handles this.
             }
 
             loadingBar.style.display = "block";
