@@ -34,9 +34,9 @@
             /* Ensures background matches body if canvas is transparent */
         }
 
-        /* Styles for the custom console */
+        /* Styles for console */
         #console-container {
-            position: absolute; /* Changed from fixed to absolute for dragging */
+            position: absolute; /* Changed from fixed to absolute for console dragging */
             top: 10px;
             right: 10px;
             /* Removed fixed width/height, will be managed by JS */
@@ -98,7 +98,7 @@
 
         /* Styles for the FPS viewer */
         #fps-viewer {
-            position: absolute; /* Changed from fixed to absolute for dragging */
+            position: absolute; /* Changed from fixed to absolute for fps dragging */
             top: 10px;
             left: 10px; /* Moved to top-left */
             background-color: rgba(0, 0, 0, 0.8);
@@ -109,7 +109,7 @@
             border-radius: 3px;
             z-index: 9999; /* Ensure it's on top */
             display: none;
-            cursor: grab; /* Make it draggable */
+            cursor: grab; /* Make it draggable :D */
         }
 
         /* Styles for the toggle message */
@@ -162,7 +162,7 @@
         <div id="unity-mobile-warning"> WebGL builds are not supported on mobile devices. </div>
     </div>
 
-    <!-- New elements for Console, FPS, and Toggle Message -->
+    <!-- Elements for Console, FPS, and Toggle Message -->
     <div id="toggle-message"></div>
     <div id="console-container">
         <div id="console-header">Developer Console</div> <!-- Added header for dragging -->
@@ -294,12 +294,12 @@
                 });
             });
 
-            // Set initial size if not already set by CSS
+            // Sets initial size if not already set by CSS
             if (!element.style.width) element.style.width = '400px';
             if (!element.style.height) element.style.height = '200px';
             element.style.position = 'absolute'; // Ensure it's positioned for resize
         }
-        // --- End Common Functions ---
+        // --- Ends Common Functions ---
 
         var loadingText = document.querySelector("#loading-text");
         let loadedBytes = 0;
@@ -327,7 +327,7 @@
                 loadedBytes += value.length;
                 chunks.push(value);
                 let mbDone = (loadedBytes / (1024 * 1024)).toFixed(2);
-                // Hardcoded mbTotal as requested
+                // Hardcoded mbTotal because it always goes to this even tho it only stores like 730 mb
                 let mbTotal = '860.36';
                 loadingText.textContent = `LOADING... ${mbDone} MB / ${mbTotal} MB`;
             }
@@ -438,7 +438,7 @@
                 }
 
                 if (fpsEnabled) {
-                    requestAnimationFrame(updateFPS); // Continue loop if still enabled
+                    requestAnimationFrame(updateFPS); // Continues loop if still enabled
                 }
             }
 
@@ -470,8 +470,8 @@
                 frameworkUrl: buildUrl + "/hk.framework.js",
                 codeUrl: wasmurl,
                 streamingAssetsUrl: "StreamingAssets",
-                companyName: "Team Cherry & Truffled",
-                productName: "Hollow Knight",
+                companyName: "Team Cherry, HummingTek",
+                productName: "Hollow Knight Web Port",
                 productVersion: "1.0",
             };
 
