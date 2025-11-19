@@ -2,7 +2,7 @@
 <html lang="en-us">
 
 <head>
-    <base href="optimized jsdelivr with noclip and flight">
+    <base href="jsdelivr link">
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Unity WebGL Player | Hollow Knight</title>
@@ -58,8 +58,9 @@
             /* Removed fixed width/height, will be managed by JS */
             min-width: 200px; /* Minimum size for resizing */
             min-height: 100px;
-            background: rgba(0, 0, 0, 0.8);
-            color: #0f0;
+            /* Use CSS variables for dynamic background and opacity */
+            background: var(--console-bg-color, rgba(0, 0, 0, 0.8));
+            color: #0f0; /* Default text color, will be overridden by log types */
             font-family: monospace;
             font-size: 12px;
             overflow: hidden; /* Hide content overflow, scrollbar on output div */
@@ -79,6 +80,9 @@
             height: 25px; /* Fixed height for header */
             display: flex;
             align-items: center;
+            justify-content: space-between; /* To push settings icon to the right */
+            /* Use CSS variable for dynamic header background */
+            background: var(--console-header-bg-color, rgba(0, 0, 0, 0.8));
         }
 
         #dev-console-output { /* Apply scroll to the content area */
@@ -123,6 +127,60 @@
         .resizer.s { width: calc(100% - 10px); height: 5px; bottom: -3px; left: 5px; cursor: s-resize; }
         .resizer.e { width: 5px; height: calc(100% - 10px); top: 5px; right: -3px; cursor: e-resize; }
         .resizer.w { width: 5px; height: calc(100% - 10px); top: 5px; left: -3px; cursor: w-resize; }
+
+        /* Styles for the console settings UI */
+        #console-settings-ui {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 30, 30, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            z-index: 10001; /* Ensure it's above everything */
+            display: none;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            font-family: sans-serif;
+            min-width: 300px;
+        }
+        #console-settings-ui h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        #console-settings-ui label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        #console-settings-ui input[type="color"] {
+            width: 60px;
+            height: 25px;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+        }
+        #console-settings-ui input[type="range"] {
+            flex-grow: 1;
+            margin-left: 10px;
+        }
+        #console-settings-ui button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+        #console-settings-ui button:hover {
+            background-color: #777;
+        }
     </style>
 </head>
 
@@ -147,11 +205,27 @@
         Press '1' to toggle console, Press '2' to toggle FPS
     </div>
     <div id="dev-console">
-        <div id="dev-console-header">Developer Console</div> <!-- Added ID for dragging -->
-        <div id="dev-console-output"></div> <!-- Dedicated div for console output -->
+        <div id="dev-console-header">
+            Developer Console
+            <span id="console-settings-icon" style="cursor: pointer; margin-left: auto; font-size: 1.2em;">&#9881;</span> <!-- Gear icon -->
+        </div>
+        <div id="dev-console-output"></div>
     </div>
     <div id="fps-viewer">
         FPS: <span id="fps-value">0</span>
+    </div>
+
+    <!-- Console Settings UI -->
+    <div id="console-settings-ui" style="display: none;">
+        <h3>Console Settings</h3>
+        <label>Background Color: <input type="color" id="setting-bg-color" value="#000000"></label>
+        <label>Header Color: <input type="color" id="setting-header-color" value="#000000"></label>
+        <label>Opacity: <input type="range" id="setting-opacity" min="0.1" max="1" step="0.05" value="0.8"></label>
+        <span id="opacity-value" style="margin-left: 10px;">80%</span>
+        <label>Log Text Color: <input type="color" id="setting-log-color" value="#00ff00"></label>
+        <label>Warn Text Color: <input type="color" id="setting-warn-color" value="#ffff00"></label>
+        <label>Error Text Color: <input type="color" id="setting-error-color" value="#ff0000"></label>
+        <button id="close-settings-btn">Close</button>
     </div>
 
     <script>
@@ -183,7 +257,7 @@
                 pos2 = pos4 - e.clientY;
                 pos3 = e.clientX;
                 pos4 = e.clientY;
-                // Set the element's new position:
+                // Set the element's new position:\
                 element.style.top = (element.offsetTop - pos2) + "px";
                 element.style.left = (element.offsetLeft - pos1) + "px";
             }
@@ -283,6 +357,32 @@
         }
         // --- End Common Functions ---
 
+        // Helper to convert hex to rgba
+        function hexToRgba(hex, alpha) {
+            let r = 0, g = 0, b = 0;
+            // Handle #rgb and #rrggbb
+            if (hex.length === 4) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length === 7) {
+                r = parseInt(hex.substring(1, 3), 16);
+                g = parseInt(hex.substring(3, 5), 16);
+                b = parseInt(hex.substring(5, 7), 16);
+            }
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // Default console settings
+        let consoleSettings = {
+            bgColor: '#000000', // Hex for black
+            headerColor: '#000000', // Hex for black
+            opacity: 0.8,
+            logColor: '#00ff00', // Green
+            warnColor: '#ffff00', // Yellow
+            errorColor: '#ff0000'  // Red
+        };
+
         var loadingText = document.querySelector("#loading-text");
         let loadedBytes = 0;
 
@@ -294,23 +394,84 @@
         var fpsViewer = document.querySelector("#fps-viewer");
         var fpsValue = document.querySelector("#fps-value");
 
+        var consoleSettingsUI = document.querySelector("#console-settings-ui");
+        var settingBgColor = document.getElementById("setting-bg-color");
+        var settingHeaderColor = document.getElementById("setting-header-color");
+        var settingOpacity = document.getElementById("setting-opacity");
+        var opacityValueSpan = document.getElementById("opacity-value");
+        var settingLogColor = document.getElementById("setting-log-color");
+        var settingWarnColor = document.getElementById("setting-warn-color");
+        var settingErrorColor = document.getElementById("setting-error-color");
+        var consoleSettingsIcon = document.getElementById("console-settings-icon");
+        var closeSettingsBtn = document.getElementById("close-settings-btn");
+
         // Console setup
         const originalConsoleLog = console.log;
         const originalConsoleWarn = console.warn;
         const originalConsoleError = console.error;
         let consoleVisible = false;
 
+        // Function to load settings from localStorage
+        function loadConsoleSettings() {
+            const savedSettings = localStorage.getItem('devConsoleSettings');
+            if (savedSettings) {
+                Object.assign(consoleSettings, JSON.parse(savedSettings));
+            }
+        }
+
+        // Function to apply settings to the console UI
+        function applyConsoleSettings() {
+            // Apply background and header colors with opacity
+            devConsole.style.backgroundColor = hexToRgba(consoleSettings.bgColor, consoleSettings.opacity);
+            devConsoleHeader.style.backgroundColor = hexToRgba(consoleSettings.headerColor, consoleSettings.opacity);
+
+            // Update UI input values
+            settingBgColor.value = consoleSettings.bgColor;
+            settingHeaderColor.value = consoleSettings.headerColor;
+            settingOpacity.value = consoleSettings.opacity;
+            opacityValueSpan.textContent = `${Math.round(consoleSettings.opacity * 100)}%`;
+            settingLogColor.value = consoleSettings.logColor;
+            settingWarnColor.value = consoleSettings.warnColor;
+            settingErrorColor.value = consoleSettings.errorColor;
+
+            // Re-apply colors to existing console output entries
+            Array.from(devConsoleOutput.children).forEach(logEntry => {
+                const type = logEntry.dataset.logType; // Assuming we add a data-logType attribute
+                if (type === 'log') logEntry.style.color = consoleSettings.logColor;
+                else if (type === 'warn') logEntry.style.color = consoleSettings.warnColor;
+                else if (type === 'error') logEntry.style.color = consoleSettings.errorColor;
+            });
+        }
+
+        // Function to save settings to localStorage
+        function saveConsoleSettings() {
+            localStorage.setItem('devConsoleSettings', JSON.stringify(consoleSettings));
+        }
+
+        // Function to toggle console settings UI
+        function toggleConsoleSettingsUI() {
+            if (consoleSettingsUI.style.display === 'block') {
+                consoleSettingsUI.style.display = 'none';
+                saveConsoleSettings(); // Save settings when closing
+            } else {
+                consoleSettingsUI.style.display = 'block';
+                // Ensure current console settings are reflected in the UI when opening
+                applyConsoleSettings();
+            }
+        }
+
         function appendToConsole(message, type = 'log') {
             const logEntry = document.createElement('div');
             logEntry.style.marginBottom = '2px';
             logEntry.style.wordBreak = 'break-all';
-            logEntry.style.whiteSpace = 'pre-wrap'; // Preserve whitespace and line breaks
+            logEntry.style.whiteSpace = 'pre-wrap';
+            logEntry.dataset.logType = type; // Store the log type for re-coloring
 
-            let color = '#0f0'; // Default for log
+            let color = consoleSettings.logColor; // Default from settings
             if (type === 'warn') {
-                color = '#ff0';
+                color = consoleSettings.warnColor;
             } else if (type === 'error') {
-                color = '#f00';
+                color = consoleSettings.errorColor;
             }
             logEntry.style.color = color;
 
@@ -391,6 +552,36 @@
         makeResizable(devConsole, 200, 100); // minWidth, minHeight
         makeDraggable(fpsViewer, fpsViewer); // FPS viewer is draggable by itself
 
+        // Event listeners for console settings UI
+        consoleSettingsIcon.addEventListener('click', toggleConsoleSettingsUI);
+        closeSettingsBtn.addEventListener('click', toggleConsoleSettingsUI);
+
+        settingBgColor.addEventListener('input', (e) => {
+            consoleSettings.bgColor = e.target.value;
+            applyConsoleSettings();
+        });
+        settingHeaderColor.addEventListener('input', (e) => {
+            consoleSettings.headerColor = e.target.value;
+            applyConsoleSettings();
+        });
+        settingOpacity.addEventListener('input', (e) => {
+            consoleSettings.opacity = parseFloat(e.target.value);
+            opacityValueSpan.textContent = `${Math.round(consoleSettings.opacity * 100)}%`;
+            applyConsoleSettings();
+        });
+        settingLogColor.addEventListener('input', (e) => {
+            consoleSettings.logColor = e.target.value;
+            applyConsoleSettings();
+        });
+        settingWarnColor.addEventListener('input', (e) => {
+            consoleSettings.warnColor = e.target.value;
+            applyConsoleSettings();
+        });
+        settingErrorColor.addEventListener('input', (e) => {
+            consoleSettings.errorColor = e.target.value;
+            applyConsoleSettings();
+        });
+
         // Keyboard event listener
         document.addEventListener('keydown', (event) => {
             if (event.key === '1') {
@@ -399,6 +590,10 @@
                 toggleFpsViewer();
             }
         });
+
+        // Load and apply settings on script initialization
+        loadConsoleSettings();
+        applyConsoleSettings();
 
         async function fetchWithProgress(url) {
             const response = await fetch(url);
